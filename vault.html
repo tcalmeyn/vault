@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Vault</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #7c6af7;
+    --accent2: #f76a8a;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --green: #4af7a0;
+    --danger: #f76a6a;
+    --r: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    touch-action: manipulation;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+    overflow: hidden;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ── SETUP SCREEN ── */
+  #setupScreen {
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    gap: 24px;
+    padding: 40px 32px;
+  }
+  #setupScreen .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--accent);
+  }
+  #setupScreen .subtitle {
+    color: var(--text2);
+    text-align: center;
+    line-height: 1.6;
+    font-size: 13px;
+  }
+  #setupScreen .step-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text);
+  }
+
+  /* ── LOCK SCREEN ── */
+  #lockScreen {
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    gap: 28px;
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  #lockScreen::before {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .lock-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--accent);
+    position: relative;
+  }
+  .lock-icon {
+    font-size: 48px;
+    line-height: 1;
+  }
+  .pin-dots {
+    display: flex;
+    gap: 16px;
+    margin: 8px 0;
+  }
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all .15s ease;
+  }
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(124,106,247,0.6);
+  }
+  .pin-dot.error {
+    background: var(--danger);
+    border-color: var(--danger);
+    animation: shake .3s ease;
+  }
+  .pin-status {
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: 0.05em;
+    height: 18px;
+    text-align: center;
+  }
+  .pin-status.error { color: var(--danger); }
+  .pin-status.success { color: var(--green); }
+
+  /* PIN PAD */
+  .pinpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 280px;
+  }
+  .pin-btn {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .1s ease;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+  }
+  .pin-btn:active {
+    transform: scale(0.92);
+    background: var(--surface2);
+    border-color: var(--accent);
+  }
+  .pin-btn.del {
+    font-size: 18px;
+    color: var(--text2);
+  }
+  .pin-btn.empty { border-color: transparent; background: transparent; pointer-events: none; }
+
+  /* ── MAIN APP ── */
+  #appScreen {
+    background: var(--bg);
+    flex-direction: column;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px 12px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .top-bar .title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--accent);
+    flex: 1;
+  }
+  .icon-btn {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .icon-btn:active { transform: scale(0.9); background: var(--surface2); }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    padding: 10px 16px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* LISTS */
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 100px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .list.active { display: flex; }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text2);
+    font-size: 13px;
+    padding: 60px 0;
+  }
+  .empty-state .emoji { font-size: 40px; }
+
+  /* NOTE CARD */
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .note-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 3px 0 0 3px;
+  }
+  .note-card:active { transform: scale(0.98); }
+  .note-card .nc-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 5px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .note-card .nc-preview {
+    color: var(--text2);
+    font-size: 12px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .note-card .nc-date {
+    color: var(--text2);
+    font-size: 10px;
+    margin-top: 8px;
+    opacity: 0.6;
+  }
+  .note-card .nc-del {
+    position: absolute;
+    right: 12px; top: 12px;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(247,106,106,0.15);
+    border: none;
+    color: var(--danger);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .note-card:hover .nc-del,
+  .note-card.show-del .nc-del { opacity: 1; }
+
+  /* IMAGE CARD */
+  .img-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 4/3;
+    cursor: pointer;
+  }
+  .img-card img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .2s;
+  }
+  .img-card:active img { transform: scale(1.03); }
+  .img-card .img-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(10,10,15,0.8) 0%, transparent 50%);
+    display: flex;
+    align-items: flex-end;
+    padding: 12px;
+    justify-content: space-between;
+  }
+  .img-card .img-name {
+    color: #fff;
+    font-size: 12px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .img-card .img-del {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(247,106,106,0.3);
+    border: none;
+    color: var(--danger);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .img-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* FAB */
+  .fab {
+    position: fixed;
+    right: 20px;
+    bottom: 28px;
+    width: 56px; height: 56px;
+    border-radius: 18px;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(124,106,247,0.5);
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+    z-index: 50;
+  }
+  .fab:active { transform: scale(0.92); }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .modal-backdrop.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(40px);
+    transition: transform .25s ease;
+    overflow: hidden;
+  }
+  .modal-backdrop.open .modal {
+    transform: translateY(0);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    flex: 1;
+    color: var(--text);
+  }
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* INPUTS */
+  .field-label {
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  input[type="text"], textarea, input[type="password"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color .15s;
+    resize: none;
+    -webkit-appearance: none;
+  }
+  input[type="text"]:focus, textarea:focus, input[type="password"]:focus {
+    border-color: var(--accent);
+  }
+  textarea { min-height: 160px; line-height: 1.6; }
+
+  .btn {
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    letter-spacing: 0.02em;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-danger { background: rgba(247,106,106,0.15); color: var(--danger); border: 1px solid rgba(247,106,106,0.3); }
+  .btn-ghost { background: var(--surface2); color: var(--text2); }
+
+  /* IMAGE VIEWER */
+  #imgViewer {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #imgViewer.open { display: flex; }
+  #imgViewer img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  #imgViewer .close-btn {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 12px;
+    z-index: 999;
+    opacity: 0;
+    transition: all .25s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div id="setupScreen" class="screen">
+  <div class="logo">🔒 Vault</div>
+  <div class="subtitle">Your private space.<br>Set a PIN to get started.</div>
+  <div class="step-label" id="setupLabel">Choose a PIN (4–8 digits)</div>
+  <div class="pin-dots" id="setupDots"></div>
+  <div class="pin-status" id="setupStatus"></div>
+  <div class="pinpad" id="setupPad"></div>
+</div>
+
+<!-- ══ LOCK SCREEN ══ -->
+<div id="lockScreen" class="screen">
+  <div class="lock-icon">🔒</div>
+  <div class="lock-logo">Vault</div>
+  <div class="pin-dots" id="lockDots"></div>
+  <div class="pin-status" id="lockStatus"></div>
+  <div class="pinpad" id="lockPad"></div>
+</div>
+
+<!-- ══ APP SCREEN ══ -->
+<div id="appScreen" class="screen">
+  <div class="top-bar">
+    <div class="title">Vault</div>
+    <button class="icon-btn" onclick="showChangePin()" title="Change PIN">⚙</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('notes')">📝 Notes</button>
+    <button class="tab" onclick="switchTab('images')">🖼 Images</button>
+  </div>
+
+  <!-- NOTES LIST -->
+  <div id="notesList" class="list active"></div>
+
+  <!-- IMAGES LIST -->
+  <div id="imagesList" class="list"></div>
+
+  <button class="fab" id="fabBtn" onclick="handleFab()">＋</button>
+</div>
+
+<!-- ══ NOTE EDITOR MODAL ══ -->
+<div id="noteModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="noteModalTitle">New Note</div>
+      <button class="icon-btn" onclick="closeNoteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="field-label">Title</div>
+        <input type="text" id="noteTitle" placeholder="Untitled note" maxlength="80">
+      </div>
+      <div>
+        <div class="field-label">Content</div>
+        <textarea id="noteBody" placeholder="Write anything…"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveNote()">Save Note</button>
+      <button class="btn btn-danger" id="deleteNoteBtn" onclick="deleteCurrentNote()" style="display:none">Delete Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD IMAGE MODAL ══ -->
+<div id="imgModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Image</div>
+      <button class="icon-btn" onclick="closeImgModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="field-label">Name (optional)</div>
+        <input type="text" id="imgName" placeholder="e.g. Receipt, Document…" maxlength="60">
+      </div>
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Choose from Gallery</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('cameraInput').click()">📷 Take Photo</button>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImageFile(this)">
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleImageFile(this)">
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHANGE PIN MODAL ══ -->
+<div id="pinModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Change PIN</div>
+      <button class="icon-btn" onclick="closePinModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="field-label">Current PIN</div>
+        <input type="password" id="oldPin" placeholder="Enter current PIN" inputmode="numeric" maxlength="8">
+      </div>
+      <div>
+        <div class="field-label">New PIN (4–8 digits)</div>
+        <input type="password" id="newPin" placeholder="Enter new PIN" inputmode="numeric" maxlength="8">
+      </div>
+      <div>
+        <div class="field-label">Confirm New PIN</div>
+        <input type="password" id="confirmPin" placeholder="Repeat new PIN" inputmode="numeric" maxlength="8">
+      </div>
+      <button class="btn btn-primary" onclick="changePin()">Update PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ IMAGE VIEWER ══ -->
+<div id="imgViewer">
+  <button class="close-btn" onclick="closeViewer()">✕</button>
+  <img id="viewerImg" src="" alt="">
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// DB
+// ═══════════════════════════════════════════════════
+let db;
+const DB_NAME = 'vaultdb_v1';
+const DB_VER = 1;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('notes'))
+        d.createObjectStore('notes', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('images'))
+        d.createObjectStore('images', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('config'))
+        d.createObjectStore('config', { keyPath: 'key' });
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbPut(store, val) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(val);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+function dbGetAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let appUnlocked = false;
+let currentTab = 'notes';
+let editingNoteId = null;
+let notes = [];
+let images = [];
+let setupStage = 'choose'; // 'choose' | 'confirm'
+let setupFirst = '';
+let lockInput = '';
+let setupInput = '';
+const MAX_ATTEMPTS = 5;
+let failedAttempts = 0;
+let lockoutUntil = 0;
+
+// ═══════════════════════════════════════════════════
+// HASH
+// ═══════════════════════════════════════════════════
+async function hashPin(pin) {
+  const buf = new TextEncoder().encode(pin + 'v4ult_s4lt_9x');
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════
+// PINPAD BUILDER
+// ═══════════════════════════════════════════════════
+function buildPinpad(padEl, dotsEl, onKey) {
+  padEl.innerHTML = '';
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'pin-btn' + (k === '' ? ' empty' : k === '⌫' ? ' del' : '');
+    btn.textContent = k;
+    if (k !== '') btn.addEventListener('click', () => onKey(k));
+    padEl.appendChild(btn);
+  });
+}
+
+function updateDots(dotsEl, len, max, error = false) {
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < max; i++) {
+    const d = document.createElement('div');
+    d.className = 'pin-dot' + (i < len ? (error ? ' error' : ' filled') : '');
+    dotsEl.appendChild(d);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SETUP FLOW
+// ═══════════════════════════════════════════════════
+function initSetup() {
+  setupStage = 'choose';
+  setupFirst = '';
+  setupInput = '';
+  document.getElementById('setupLabel').textContent = 'Choose a PIN (4–8 digits)';
+  document.getElementById('setupStatus').textContent = '';
+  updateDots(document.getElementById('setupDots'), 0, 6);
+  buildPinpad(
+    document.getElementById('setupPad'),
+    document.getElementById('setupDots'),
+    setupKey
+  );
+}
+
+function setupKey(k) {
+  if (k === '⌫') {
+    setupInput = setupInput.slice(0, -1);
+  } else {
+    if (setupInput.length >= 8) return;
+    setupInput += k;
+  }
+  const max = setupStage === 'confirm' ? setupFirst.length : 8;
+  updateDots(document.getElementById('setupDots'), setupInput.length, Math.max(setupInput.length, 4));
+
+  if (setupStage === 'choose' && setupInput.length >= 4) {
+    // auto-advance after a beat
+    if (setupInput.length === 8) confirmSetupPin();
+  }
+  if (setupStage === 'confirm' && setupInput.length === setupFirst.length) {
+    confirmSetupPin();
+  }
+}
+
+async function confirmSetupPin() {
+  if (setupStage === 'choose') {
+    if (setupInput.length < 4) {
+      document.getElementById('setupStatus').textContent = 'At least 4 digits required';
+      return;
+    }
+    setupFirst = setupInput;
+    setupInput = '';
+    setupStage = 'confirm';
+    document.getElementById('setupLabel').textContent = 'Confirm your PIN';
+    document.getElementById('setupStatus').textContent = '';
+    updateDots(document.getElementById('setupDots'), 0, setupFirst.length);
+  } else {
+    if (setupInput === setupFirst) {
+      const h = await hashPin(setupInput);
+      await dbPut('config', { key: 'pin', value: h });
+      document.getElementById('setupStatus').textContent = '✓ PIN set!';
+      document.getElementById('setupStatus').className = 'pin-status success';
+      setTimeout(() => enterApp(), 500);
+    } else {
+      document.getElementById('setupStatus').textContent = 'PINs do not match — try again';
+      document.getElementById('setupStatus').className = 'pin-status error';
+      updateDots(document.getElementById('setupDots'), setupFirst.length, setupFirst.length, true);
+      setTimeout(() => {
+        setupStage = 'choose';
+        setupFirst = '';
+        setupInput = '';
+        document.getElementById('setupLabel').textContent = 'Choose a PIN (4–8 digits)';
+        document.getElementById('setupStatus').textContent = '';
+        document.getElementById('setupStatus').className = 'pin-status';
+        updateDots(document.getElementById('setupDots'), 0, 6);
+      }, 1000);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// LOCK FLOW
+// ═══════════════════════════════════════════════════
+function initLock() {
+  lockInput = '';
+  document.getElementById('lockStatus').textContent = '';
+  document.getElementById('lockStatus').className = 'pin-status';
+  updateDots(document.getElementById('lockDots'), 0, 4);
+
+  // Check lockout
+  if (Date.now() < lockoutUntil) {
+    const secs = Math.ceil((lockoutUntil - Date.now()) / 1000);
+    document.getElementById('lockStatus').textContent = `Too many attempts. Wait ${secs}s`;
+    document.getElementById('lockStatus').className = 'pin-status error';
+  }
+
+  buildPinpad(
+    document.getElementById('lockPad'),
+    document.getElementById('lockDots'),
+    lockKey
+  );
+}
+
+async function lockKey(k) {
+  if (Date.now() < lockoutUntil) return;
+  if (k === '⌫') {
+    lockInput = lockInput.slice(0, -1);
+  } else {
+    if (lockInput.length >= 8) return;
+    lockInput += k;
+  }
+  updateDots(document.getElementById('lockDots'), lockInput.length, Math.max(lockInput.length, 4));
+
+  // Try to verify when we have at least 4 digits and user hasn't pressed more
+  // We verify on each key after 4 — if the stored hash matches length we try
+  const pinRec = await dbGet('config', 'pin');
+  if (!pinRec) return;
+  const h = await hashPin(lockInput);
+  if (h === pinRec.value) {
+    failedAttempts = 0;
+    document.getElementById('lockStatus').textContent = '✓ Welcome back';
+    document.getElementById('lockStatus').className = 'pin-status success';
+    setTimeout(() => enterApp(), 300);
+  } else if (lockInput.length >= 8) {
+    wrongPin();
+  }
+}
+
+function wrongPin() {
+  failedAttempts++;
+  updateDots(document.getElementById('lockDots'), lockInput.length, Math.max(lockInput.length,4), true);
+  if (failedAttempts >= MAX_ATTEMPTS) {
+    lockoutUntil = Date.now() + 30000;
+    document.getElementById('lockStatus').textContent = 'Too many attempts. Wait 30s';
+    failedAttempts = 0;
+  } else {
+    document.getElementById('lockStatus').textContent = `Wrong PIN (${MAX_ATTEMPTS - failedAttempts} left)`;
+  }
+  document.getElementById('lockStatus').className = 'pin-status error';
+  lockInput = '';
+  setTimeout(() => {
+    updateDots(document.getElementById('lockDots'), 0, 4);
+    if (Date.now() >= lockoutUntil)
+      document.getElementById('lockStatus').textContent = '';
+  }, 700);
+}
+
+// ═══════════════════════════════════════════════════
+// ENTER APP
+// ═══════════════════════════════════════════════════
+async function enterApp() {
+  appUnlocked = true;
+  await loadNotes();
+  await loadImages();
+  showScreen('appScreen');
+}
+
+function lockApp() {
+  appUnlocked = false;
+  closeNoteModal();
+  closeImgModal();
+  closePinModal();
+  lockInput = '';
+  initLock();
+  showScreen('lockScreen');
+}
+
+// ═══════════════════════════════════════════════════
+// VISIBILITY / LOCK ON HIDE
+// ═══════════════════════════════════════════════════
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && appUnlocked) lockApp();
+});
+window.addEventListener('blur', () => {
+  if (appUnlocked) lockApp();
+});
+window.addEventListener('pagehide', () => {
+  if (appUnlocked) lockApp();
+});
+
+// ═══════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i===0 && tab==='notes') || (i===1 && tab==='images')));
+  document.getElementById('notesList').classList.toggle('active', tab === 'notes');
+  document.getElementById('imagesList').classList.toggle('active', tab === 'images');
+}
+
+function handleFab() {
+  if (currentTab === 'notes') openNoteModal(null);
+  else openImgModal();
+}
+
+// ═══════════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════════
+async function loadNotes() {
+  notes = await dbGetAll('notes');
+  notes.sort((a, b) => b.updated - a.updated);
+  renderNotes();
+}
+
+function renderNotes() {
+  const el = document.getElementById('notesList');
+  if (!notes.length) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">📝</div><span>No notes yet. Tap + to add one.</span></div>';
+    return;
+  }
+  el.innerHTML = '';
+  notes.forEach(n => {
+    const card = document.createElement('div');
+    card.className = 'note-card';
+    card.innerHTML = `
+      <div class="nc-title">${esc(n.title || 'Untitled')}</div>
+      <div class="nc-preview">${esc(n.body || '')}</div>
+      <div class="nc-date">${fmtDate(n.updated)}</div>
+      <button class="nc-del" onclick="event.stopPropagation(); deleteNote('${n.id}')">🗑</button>
+    `;
+    card.addEventListener('click', () => openNoteModal(n));
+    card.addEventListener('touchstart', longPressStart(card), {passive:true});
+    el.appendChild(card);
+  });
+}
+
+function longPressStart(card) {
+  let t;
+  return () => {
+    t = setTimeout(() => card.classList.toggle('show-del'), 600);
+    const end = () => clearTimeout(t);
+    card.addEventListener('touchend', end, {once:true});
+    card.addEventListener('touchmove', end, {once:true});
+  };
+}
+
+function openNoteModal(note) {
+  editingNoteId = note ? note.id : null;
+  document.getElementById('noteModalTitle').textContent = note ? 'Edit Note' : 'New Note';
+  document.getElementById('noteTitle').value = note ? note.title : '';
+  document.getElementById('noteBody').value = note ? note.body : '';
+  document.getElementById('deleteNoteBtn').style.display = note ? '' : 'none';
+  document.getElementById('noteModal').classList.add('open');
+  setTimeout(() => document.getElementById('noteTitle').focus(), 350);
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.remove('open');
+}
+
+async function saveNote() {
+  const title = document.getElementById('noteTitle').value.trim();
+  const body = document.getElementById('noteBody').value.trim();
+  if (!title && !body) { toast('Nothing to save'); return; }
+  const note = {
+    id: editingNoteId || uid(),
+    title: title || 'Untitled',
+    body,
+    updated: Date.now()
+  };
+  await dbPut('notes', note);
+  closeNoteModal();
+  await loadNotes();
+  toast('Note saved');
+}
+
+async function deleteCurrentNote() {
+  if (!editingNoteId) return;
+  await deleteNote(editingNoteId);
+  closeNoteModal();
+}
+
+async function deleteNote(id) {
+  if (!confirm('Delete this note?')) return;
+  await dbDelete('notes', id);
+  await loadNotes();
+  toast('Deleted');
+}
+
+// ═══════════════════════════════════════════════════
+// IMAGES
+// ═══════════════════════════════════════════════════
+async function loadImages() {
+  images = await dbGetAll('images');
+  images.sort((a, b) => b.added - a.added);
+  renderImages();
+}
+
+function renderImages() {
+  const el = document.getElementById('imagesList');
+  if (!images.length) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">🖼</div><span>No images yet. Tap + to add one.</span></div>';
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'img-grid';
+  images.forEach(img => {
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.innerHTML = `
+      <img src="${img.data}" alt="${esc(img.name)}" loading="lazy">
+      <div class="img-overlay">
+        <span class="img-name">${esc(img.name || 'Image')}</span>
+        <button class="img-del" onclick="event.stopPropagation(); deleteImage('${img.id}')">🗑</button>
+      </div>
+    `;
+    card.addEventListener('click', () => openViewer(img.data));
+    grid.appendChild(card);
+  });
+  el.innerHTML = '';
+  el.appendChild(grid);
+}
+
+function openImgModal() {
+  document.getElementById('imgName').value = '';
+  document.getElementById('imgModal').classList.add('open');
+}
+function closeImgModal() {
+  document.getElementById('imgModal').classList.remove('open');
+}
+
+function handleImageFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const name = document.getElementById('imgName').value.trim() || file.name.replace(/\.[^.]+$/, '');
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const data = e.target.result;
+    await dbPut('images', { id: uid(), name, data, added: Date.now() });
+    closeImgModal();
+    await loadImages();
+    toast('Image saved');
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function deleteImage(id) {
+  if (!confirm('Delete this image?')) return;
+  await dbDelete('images', id);
+  await loadImages();
+  toast('Deleted');
+}
+
+function openViewer(src) {
+  document.getElementById('viewerImg').src = src;
+  document.getElementById('imgViewer').classList.add('open');
+}
+function closeViewer() {
+  document.getElementById('imgViewer').classList.remove('open');
+  document.getElementById('viewerImg').src = '';
+}
+
+// ═══════════════════════════════════════════════════
+// CHANGE PIN
+// ═══════════════════════════════════════════════════
+function showChangePin() {
+  document.getElementById('oldPin').value = '';
+  document.getElementById('newPin').value = '';
+  document.getElementById('confirmPin').value = '';
+  document.getElementById('pinModal').classList.add('open');
+}
+function closePinModal() {
+  document.getElementById('pinModal').classList.remove('open');
+}
+
+async function changePin() {
+  const old = document.getElementById('oldPin').value;
+  const nw = document.getElementById('newPin').value;
+  const cf = document.getElementById('confirmPin').value;
+  if (!old || !nw || !cf) { toast('Fill all fields'); return; }
+  if (nw.length < 4) { toast('New PIN must be 4+ digits'); return; }
+  if (nw !== cf) { toast('New PINs do not match'); return; }
+  const pinRec = await dbGet('config', 'pin');
+  const oldH = await hashPin(old);
+  if (oldH !== pinRec.value) { toast('Current PIN is wrong'); return; }
+  const newH = await hashPin(nw);
+  await dbPut('config', { key: 'pin', value: newH });
+  closePinModal();
+  toast('PIN updated!');
+}
+
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' ' +
+         d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+}
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// Close modals on backdrop click
+['noteModal','imgModal','pinModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target === document.getElementById(id)) {
+      document.getElementById(id).classList.remove('open');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+(async () => {
+  await openDB();
+  const pinRec = await dbGet('config', 'pin');
+  if (!pinRec) {
+    showScreen('setupScreen');
+    initSetup();
+  } else {
+    showScreen('lockScreen');
+    initLock();
+  }
+})();
+</script>
+</body>
+</html>
